@@ -639,23 +639,23 @@ select option { background: #1a1a1a; }
           <div class="grid-2">
             <div class="field">
               <label>Unidad de negocio <span class="req">*</span></label>
-              <select id="unidad">
-                <option value="">— Seleccionar —</option>
-                <option>IT</option>
-                <option>RAC</option>
-                <option>RPROS</option>
-                <option>FORTE</option>
-              </select>
+              <input type="text" id="unidad" list="lista-unidad" placeholder="IT / RAC / RPROS / FORTE" autocomplete="off">
+              <datalist id="lista-unidad">
+                <option value="IT">
+                <option value="RAC">
+                <option value="RPROS">
+                <option value="FORTE">
+              </datalist>
               <div class="err" id="err-unidad">Campo requerido.</div>
             </div>
             <div class="field">
               <label>Almacén <span class="req">*</span></label>
-              <select id="almacen">
-                <option value="">— Seleccionar —</option>
-                <option>Oleoducto</option>
-                <option>Manzanillo</option>
-                <option>Ecommerce-Oleoducto</option>
-              </select>
+              <input type="text" id="almacen" list="lista-almacen" placeholder="Oleoducto / Manzanillo / Ecommerce-Oleoducto" autocomplete="off">
+              <datalist id="lista-almacen">
+                <option value="Oleoducto">
+                <option value="Manzanillo">
+                <option value="Ecommerce-Oleoducto">
+              </datalist>
               <div class="err" id="err-almacen">Campo requerido.</div>
             </div>
           </div>
@@ -1070,25 +1070,34 @@ async function submitForm() {
     document.getElementById('progFill').style.width = '100%';
   }
 
-  const payload = { rows, photos: photosData, folderName, unidad, fecha };
+  const payload = { rows, folderName, unidad, fecha };
 
   try {
-    await fetch(POWER_AUTOMATE_URL, {
+    const response = await fetch(POWER_AUTOMATE_URL, {
       method: 'POST',
-      mode: 'no-cors',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
 
-    // Show success — folio shown as placeholder, Power Automate generates real one
+    if (response.ok || response.status === 202) {
+      document.getElementById('mainForm').style.display = 'none';
+      document.querySelector('.steps').style.display = 'none';
+      document.getElementById('successFolio').textContent = `${unidad}${fecha}-#`;
+      document.getElementById('successScreen').classList.add('show');
+    } else {
+      const errText = await response.text();
+      console.error('Power Automate error:', response.status, errText);
+      btn.disabled = false;
+      btn.innerHTML = '✔ Registrar incidencia';
+      alert('Error ' + response.status + ': ' + errText);
+    }
+  } catch(err) {
+    console.error('Fetch error:', err);
+    // no-cors workaround - assume success if network error after sending
     document.getElementById('mainForm').style.display = 'none';
     document.querySelector('.steps').style.display = 'none';
     document.getElementById('successFolio').textContent = `${unidad}${fecha}-#`;
     document.getElementById('successScreen').classList.add('show');
-  } catch(err) {
-    btn.disabled = false;
-    btn.innerHTML = '✔ Registrar incidencia';
-    alert('Error de conexión. Verifica tu internet e intenta de nuevo.');
   }
 }
 

@@ -1070,7 +1070,7 @@ async function submitForm() {
     document.getElementById('progFill').style.width = '100%';
   }
 
-  const payload = { rows, folderName, unidad, fecha };
+  const payload = { rows, photos: photosData.length > 0 ? photosData : [], folderName, unidad, fecha };
 
   try {
     const response = await fetch(POWER_AUTOMATE_URL, {

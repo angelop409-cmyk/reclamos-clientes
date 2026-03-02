@@ -1079,21 +1079,23 @@ async function submitForm() {
       body: JSON.stringify(payload)
     });
 
-    if (response.ok || response.status === 202) {
-      document.getElementById('mainForm').style.display = 'none';
-      document.querySelector('.steps').style.display = 'none';
-      document.getElementById('successFolio').textContent = `${unidad}${fecha}-#`;
-      document.getElementById('successScreen').classList.add('show');
-    } else {
-      const errText = await response.text();
-      console.error('Power Automate error:', response.status, errText);
-      btn.disabled = false;
-      btn.innerHTML = '✔ Registrar incidencia';
-      alert('Error ' + response.status + ': ' + errText);
+    let folioFinal = `${unidad}${fecha}-#`;
+    if (response.ok || response.status === 200) {
+      try {
+        const respText = await response.text();
+        if (respText && respText.trim().length > 0) {
+          folioFinal = respText.trim().replace(/['"]/g, '');
+        }
+      } catch(e) {}
     }
+
+    document.getElementById('mainForm').style.display = 'none';
+    document.querySelector('.steps').style.display = 'none';
+    document.getElementById('successFolio').textContent = folioFinal;
+    document.getElementById('successScreen').classList.add('show');
+
   } catch(err) {
     console.error('Fetch error:', err);
-    // no-cors workaround - assume success if network error after sending
     document.getElementById('mainForm').style.display = 'none';
     document.querySelector('.steps').style.display = 'none';
     document.getElementById('successFolio').textContent = `${unidad}${fecha}-#`;

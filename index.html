@@ -591,6 +591,24 @@ select option { background: #1a1a1a; }
 </head>
 <body>
 
+<!-- PASSWORD SCREEN -->
+<div id="passwordScreen" style="position:fixed;inset:0;background:#0a0a0a;z-index:9999;display:flex;align-items:center;justify-content:center;padding:2rem;">
+  <div style="background:#111;border:1px solid #2a2a2a;border-top:3px solid #e8a000;padding:2.5rem 2rem;width:100%;max-width:380px;text-align:center;">
+    <div style="font-size:2.5rem;margin-bottom:1rem;">📦</div>
+    <h2 style="font-family:'Barlow Condensed',sans-serif;font-size:1.6rem;font-weight:900;text-transform:uppercase;color:#f0ece4;margin-bottom:0.3rem;">Reclamo de Cliente</h2>
+    <p style="font-size:0.8rem;color:#888;margin-bottom:1.5rem;">Ingresa la contraseña para acceder</p>
+    <div style="position:relative;margin-bottom:1rem;">
+      <input type="password" id="passInput" placeholder="Contraseña" 
+        style="width:100%;background:#1a1a1a;border:1px solid #333;color:#f0ece4;font-family:'Barlow',sans-serif;font-size:1rem;padding:0.75rem 1rem;outline:none;box-sizing:border-box;"
+        onkeydown="if(event.key==='Enter')checkPass()">
+    </div>
+    <button onclick="checkPass()" style="width:100%;padding:0.85rem;background:#e8a000;color:#000;font-family:'Barlow Condensed',sans-serif;font-size:0.9rem;font-weight:900;letter-spacing:0.15em;text-transform:uppercase;border:none;cursor:pointer;">INGRESAR →</button>
+    <div id="passError" style="color:#e84040;font-size:0.75rem;margin-top:0.5rem;display:none;">Contraseña incorrecta.</div>
+    <div style="margin-top:1rem;font-size:0.68rem;color:#555;">FORTE UNIVERSAL — VTS System</div>
+  </div>
+</div>
+
+<div id="mainContent" style="display:none;">
 <!-- HERO -->
 <div class="hero">
   <div class="hero-left">
@@ -800,7 +818,8 @@ select option { background: #1a1a1a; }
     <h2>¡Incidencia registrada!</h2>
     <p>Tu folio de seguimiento es:</p>
     <div class="folio-tag" id="successFolio">—</div>
-    <p>Los datos se guardaron en Excel y recibirás confirmación por correo.</p>
+    <p>Los datos se guardaron en Excel.</p>
+    <p style="font-size:0.8rem;color:var(--accent);">📧 Tu folio completo llegará en el correo de confirmación.</p>
     <p id="noteTest" style="display:none;color:var(--accent);font-size:0.78rem;margin-top:0.5rem;">⚠️ Modo prueba — Power Automate no conectado aún.</p>
     <br>
     <button class="btn-nuevo" onclick="resetAll()">+ Nueva incidencia</button>
@@ -1122,10 +1141,25 @@ function resetAll() {
   document.getElementById('submitBtn').innerHTML = '✔ Registrar incidencia';
 }
 
+// ── PASSWORD ──────────────────────────────────────────────────────────────────
+const PASS = 'AANM2026';
+function checkPass() {
+  const val = document.getElementById('passInput').value;
+  if (val === PASS) {
+    document.getElementById('passwordScreen').style.display = 'none';
+    document.getElementById('mainContent').style.display = 'block';
+  } else {
+    document.getElementById('passError').style.display = 'block';
+    document.getElementById('passInput').value = '';
+    document.getElementById('passInput').focus();
+  }
+}
+
 // ── INIT ──────────────────────────────────────────────────────────────────────
 document.getElementById('btnAdd').addEventListener('click', addProduct);
 document.getElementById('fechaReporte').value = new Date().toISOString().split('T')[0];
 addProduct();
 </script>
+</div>
 </body>
 </html>

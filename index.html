@@ -1425,6 +1425,14 @@ td {
       <option>NO PROCEDE</option>
     </select>
   </div>
+  <div class="filter-group">
+    <span class="filter-label">Desde</span>
+    <input type="date" class="filter-select" id="filterDesde" onchange="applyFilters()" style="padding:0.4rem 0.5rem;font-size:0.75rem;">
+  </div>
+  <div class="filter-group">
+    <span class="filter-label">Hasta</span>
+    <input type="date" class="filter-select" id="filterHasta" onchange="applyFilters()" style="padding:0.4rem 0.5rem;font-size:0.75rem;">
+  </div>
   <div class="filter-sep"></div>
   <button class="btn-clear" onclick="clearFilters()">✕ Limpiar filtros</button>
   <span id="filterCount" style="font-size:0.72rem;color:var(--muted2);margin-left:auto;"></span>
@@ -1497,6 +1505,10 @@ td {
     <div class="chart-card">
       <div class="chart-title">Top 5 Clientes con más Reclamos</div>
       <div class="chart-container"><canvas id="chartClientes"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Reclamos por Mes</div>
+      <div class="chart-container"><canvas id="chartMensual"></canvas></div>
     </div>
     <div class="chart-card" style="grid-column: 1 / -1;">
       <div class="chart-title">Tendencia de Reclamos por Fecha de Reporte</div>
@@ -1957,6 +1969,8 @@ function applyFilters() {
   const motivo = document.getElementById('filterMotivo').value;
   const almacen = document.getElementById('filterAlmacen').value;
   const reclamo = document.getElementById('filterReclamo').value;
+  const desde = document.getElementById('filterDesde').value;
+  const hasta = document.getElementById('filterHasta').value;
 
   filteredData = allData.filter(r => {
     const matchSearch = !search || Object.values(r).some(v => String(v).toLowerCase().includes(search));
@@ -1964,7 +1978,18 @@ function applyFilters() {
     const matchMotivo = !motivo || r.MOTIVO === motivo;
     const matchAlmacen = !almacen || r.ALMACEN === almacen;
     const matchReclamo = !reclamo || (r.RECLAMO || 'PENDIENTE') === reclamo;
-    return matchSearch && matchUnidad && matchMotivo && matchAlmacen && matchReclamo;
+    // Date filter - convert excel serial if needed
+    let fechaRow = r['FECHA REPORTE VTS'];
+    if (fechaRow) {
+      const num = parseFloat(fechaRow);
+      if (!isNaN(num) && num > 40000) {
+        const dt = new Date(Math.round((num - 25569) * 86400 * 1000));
+        fechaRow = dt.toISOString().split('T')[0];
+      }
+    }
+    const matchDesde = !desde || (fechaRow && fechaRow >= desde);
+    const matchHasta = !hasta || (fechaRow && fechaRow <= hasta);
+    return matchSearch && matchUnidad && matchMotivo && matchAlmacen && matchReclamo && matchDesde && matchHasta;
   });
 
   currentPage = 1;
@@ -1978,6 +2003,8 @@ function clearFilters() {
   document.getElementById('filterMotivo').value = '';
   document.getElementById('filterAlmacen').value = '';
   document.getElementById('filterReclamo').value = '';
+  document.getElementById('filterDesde').value = '';
+  document.getElementById('filterHasta').value = '';
   applyFilters();
 }
 
@@ -2164,7 +2191,6 @@ function buildCharts() {
     <div class="kpi-card"><div class="kpi-icon">🔢</div><div class="kpi-info"><div class="kpi-val" style="color:var(--danger)">${piezasTotal}</div><div class="kpi-lbl">Total Piezas</div></div></div>
     <div class="kpi-card"><div class="kpi-icon">🏢</div><div class="kpi-info"><div class="kpi-val" style="color:var(--info)">${unidades.length}</div><div class="kpi-lbl">Unidades Activas</div></div></div>
     <div class="kpi-card"><div class="kpi-icon">📷</div><div class="kpi-info"><div class="kpi-val" style="color:var(--success)">${data.filter(r=>r.FOTOS==='SÍ').length}</div><div class="kpi-lbl">Con Evidencia</div></div></div>
-    <div class="kpi-card"><div class="kpi-icon">⏱</div><div class="kpi-info"><div class="kpi-val" style="color:var(--warning)">${diasProm ? diasProm.toFixed(1) : '—'}</div><div class="kpi-lbl">Días Prom. Reporte</div></div></div>
   `;
 
   // Chart 1 — Por unidad
@@ -2240,6 +2266,37 @@ function buildCharts() {
     options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false,
       plugins: { legend: { display: false } },
       scales: { x: { beginAtZero: true, grid: { color: '#1e1e1e' }, ticks: { stepSize: 1 } }, y: { grid: { display: false } } } }
+  });
+
+  // Chart MENSUAL — barras por mes
+  const meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const mensualCount = {};
+  data.forEach(r => {
+    let f = r['FECHA REPORTE VTS'];
+    if (!f) return;
+    const num = parseFloat(f);
+    let dt;
+    if (!isNaN(num) && num > 40000) {
+      dt = new Date(Math.round((num - 25569) * 86400 * 1000));
+    } else {
+      dt = new Date(f);
+    }
+    if (isNaN(dt)) return;
+    const key = `${dt.getUTCFullYear()}-${String(dt.getUTCMonth()+1).padStart(2,'0')}`;
+    const label = `${meses[dt.getUTCMonth()]} ${dt.getUTCFullYear()}`;
+    if (!mensualCount[key]) mensualCount[key] = { label, count: 0 };
+    mensualCount[key].count++;
+  });
+  const mensualSorted = Object.keys(mensualCount).sort();
+  destroyChart('chartMensual');
+  chartInstances['chartMensual'] = new Chart(document.getElementById('chartMensual'), {
+    type: 'bar',
+    data: {
+      labels: mensualSorted.map(k => mensualCount[k].label),
+      datasets: [{ data: mensualSorted.map(k => mensualCount[k].count), backgroundColor: COLORS.accent, borderRadius: 3, borderSkipped: false }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true, grid: { color: '#1e1e1e' }, ticks: { stepSize: 1 } }, x: { grid: { display: false } } } }
   });
 
   // Chart 5 — Tendencia por fecha

@@ -6,6 +6,7 @@
 <title>Sistema de Incidencias — FORTE UNIVERSAL</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 
@@ -1426,6 +1427,10 @@ td {
     </select>
   </div>
   <div class="filter-group">
+    <span class="filter-label">Calidad</span>
+    <input type="text" class="filter-search" id="filterCalidad" placeholder="Nombre..." oninput="applyFilters()" style="min-width:120px;">
+  </div>
+  <div class="filter-group">
     <span class="filter-label">Desde</span>
     <input type="date" class="filter-select" id="filterDesde" onchange="applyFilters()" style="padding:0.4rem 0.5rem;font-size:0.75rem;">
   </div>
@@ -1463,6 +1468,7 @@ td {
         <th>PIEZAS</th>
         <th>FOTOS</th>
         <th>REGISTRADO POR</th>
+        <th onclick="sortBy('CALIDAD')">CALIDAD ↕</th>
         <th>DETALLE</th>
         <th>XLS</th>
       </tr>
@@ -1505,6 +1511,10 @@ td {
     <div class="chart-card">
       <div class="chart-title">Top 5 Clientes con más Reclamos</div>
       <div class="chart-container"><canvas id="chartClientes"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Reclamos por Responsable de Calidad</div>
+      <div class="chart-container"><canvas id="chartCalidad"></canvas></div>
     </div>
     <div class="chart-card">
       <div class="chart-title">Reclamos por Mes</div>
@@ -1969,6 +1979,7 @@ function applyFilters() {
   const motivo = document.getElementById('filterMotivo').value;
   const almacen = document.getElementById('filterAlmacen').value;
   const reclamo = document.getElementById('filterReclamo').value;
+  const calidad = document.getElementById('filterCalidad').value.toLowerCase();
   const desde = document.getElementById('filterDesde').value;
   const hasta = document.getElementById('filterHasta').value;
 
@@ -1987,9 +1998,10 @@ function applyFilters() {
         fechaRow = dt.toISOString().split('T')[0];
       }
     }
+    const matchCalidad = !calidad || (r.CALIDAD||'').toLowerCase().includes(calidad);
     const matchDesde = !desde || (fechaRow && fechaRow >= desde);
     const matchHasta = !hasta || (fechaRow && fechaRow <= hasta);
-    return matchSearch && matchUnidad && matchMotivo && matchAlmacen && matchReclamo && matchDesde && matchHasta;
+    return matchSearch && matchUnidad && matchMotivo && matchAlmacen && matchReclamo && matchCalidad && matchDesde && matchHasta;
   });
 
   currentPage = 1;
@@ -2003,6 +2015,7 @@ function clearFilters() {
   document.getElementById('filterMotivo').value = '';
   document.getElementById('filterAlmacen').value = '';
   document.getElementById('filterReclamo').value = '';
+  document.getElementById('filterCalidad').value = '';
   document.getElementById('filterDesde').value = '';
   document.getElementById('filterHasta').value = '';
   applyFilters();
@@ -2056,6 +2069,7 @@ function renderTable() {
       <td style="text-align:center;font-weight:600">${r.PIEZAS || '—'}</td>
       <td>${r.FOTOS === 'SÍ' ? '<span class="fotos-si">📷 SÍ</span>' : '<span class="fotos-no">—</span>'}</td>
       <td style="color:var(--muted2);font-size:0.78rem">${r['REGISTRADO POR'] || '—'}</td>
+      <td style="color:#a78bfa;font-size:0.78rem;font-weight:600">${r.CALIDAD || '—'}</td>
       <td><button onclick="openModal(${start + i})" style="background:none;border:1px solid var(--border2);color:var(--muted2);font-size:0.68rem;font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;padding:0.25rem 0.6rem;cursor:pointer;transition:all 0.15s;" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--muted2)'">VER</button></td>
       <td><button onclick="downloadFolio('${r.FOLIO}')" title="Descargar Excel" style="background:none;border:1px solid var(--border2);color:var(--success);font-size:0.9rem;padding:0.25rem 0.5rem;cursor:pointer;transition:all 0.15s;line-height:1;" onmouseover="this.style.borderColor='var(--success)';this.style.background='rgba(0,196,122,0.1)'" onmouseout="this.style.borderColor='var(--border2)';this.style.background='none'">⬇</button></td>
     </tr>
@@ -2094,6 +2108,7 @@ function openModal(idx) {
     ['Semana', r.SEMANA],
     ['Fotos', r.FOTOS],
     ['Registrado por', r['REGISTRADO POR']],
+    ['Calidad', r.CALIDAD],
     ['Timestamp', r.TIMESTAMP],
   ];
 
@@ -2167,6 +2182,7 @@ function excelDateToStr(val) {
 }
 
 function buildCharts() {
+  Chart.register(ChartDataLabels);
   chartsBuilt = true;
   const data = allData.length ? allData : DEMO_DATA;
 
@@ -2204,7 +2220,7 @@ function buildCharts() {
       labels: Object.keys(unidadCount),
       datasets: [{ data: Object.values(unidadCount), backgroundColor: Object.keys(unidadCount).map(u => unidadColors[u] || COLORS.accent), borderRadius: 2, borderSkipped: false }]
     },
-    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, datalabels: { color: '#f0ece4', font: { family: "'Barlow Condensed', sans-serif", weight: '700', size: 11 }, anchor: 'end', align: 'end', formatter: v => v || '' } },
       scales: { y: { beginAtZero: true, grid: { color: '#1e1e1e' }, ticks: { stepSize: 1 } }, x: { grid: { display: false } } } }
   });
 
@@ -2219,7 +2235,7 @@ function buildCharts() {
       datasets: [{ data: [faltante, sobrante], backgroundColor: [COLORS.danger, COLORS.info], borderWidth: 0, hoverOffset: 8 }]
     },
     options: { responsive: true, maintainAspectRatio: false, cutout: '65%',
-      plugins: { legend: { position: 'bottom', labels: { padding: 16, usePointStyle: true, pointStyleWidth: 8 } } } }
+      plugins: { legend: { position: 'bottom', labels: { padding: 16, usePointStyle: true, pointStyleWidth: 8 } }, datalabels: { color: '#f0ece4', font: { family: "'Barlow Condensed', sans-serif", weight: '700', size: 12 }, formatter: (v, ctx) => v > 0 ? v : '' } } }
   });
 
   // Chart RECLAMO — donut
@@ -2234,7 +2250,7 @@ function buildCharts() {
       datasets: [{ data: [pendiente, procede, noProcede], backgroundColor: [COLORS.warning, COLORS.success, COLORS.danger], borderWidth: 0, hoverOffset: 8 }]
     },
     options: { responsive: true, maintainAspectRatio: false, cutout: '65%',
-      plugins: { legend: { position: 'bottom', labels: { padding: 16, usePointStyle: true, pointStyleWidth: 8 } } } }
+      plugins: { legend: { position: 'bottom', labels: { padding: 16, usePointStyle: true, pointStyleWidth: 8 } }, datalabels: { color: '#f0ece4', font: { family: "'Barlow Condensed', sans-serif", weight: '700', size: 12 }, formatter: (v, ctx) => v > 0 ? v : '' } } }
   });
 
   // Chart 3 — Por almacén
@@ -2248,7 +2264,7 @@ function buildCharts() {
       datasets: [{ data: Object.values(almacenCount), backgroundColor: COLORS.info, borderRadius: 2, borderSkipped: false }]
     },
     options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
+      plugins: { legend: { display: false }, datalabels: { color: '#f0ece4', font: { family: "'Barlow Condensed', sans-serif", weight: '700', size: 11 }, anchor: 'end', align: 'end', formatter: v => v || '' } },
       scales: { x: { beginAtZero: true, grid: { color: '#1e1e1e' } }, y: { grid: { display: false } } } }
   });
 
@@ -2264,7 +2280,23 @@ function buildCharts() {
       datasets: [{ data: top5.map(([,v]) => v), backgroundColor: COLORS.success, borderRadius: 2, borderSkipped: false }]
     },
     options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
+      plugins: { legend: { display: false }, datalabels: { color: '#f0ece4', font: { family: "'Barlow Condensed', sans-serif", weight: '700', size: 11 }, anchor: 'end', align: 'end', formatter: v => v || '' } },
+      scales: { x: { beginAtZero: true, grid: { color: '#1e1e1e' }, ticks: { stepSize: 1 } }, y: { grid: { display: false } } } }
+  });
+
+  // Chart CALIDAD
+  const calidadCount = {};
+  data.forEach(r => { if(r.CALIDAD && r.CALIDAD.trim()) calidadCount[r.CALIDAD.trim()] = (calidadCount[r.CALIDAD.trim()]||0)+1; });
+  const calidadSorted = Object.entries(calidadCount).sort((a,b)=>b[1]-a[1]);
+  destroyChart('chartCalidad');
+  chartInstances['chartCalidad'] = new Chart(document.getElementById('chartCalidad'), {
+    type: 'bar',
+    data: {
+      labels: calidadSorted.map(([k])=>k),
+      datasets: [{ data: calidadSorted.map(([,v])=>v), backgroundColor: '#a78bfa', borderRadius: 3, borderSkipped: false }]
+    },
+    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, datalabels: { color: '#f0ece4', font: { family: "'Barlow Condensed', sans-serif", weight: '700', size: 11 }, anchor: 'end', align: 'end', formatter: v => v || '' } },
       scales: { x: { beginAtZero: true, grid: { color: '#1e1e1e' }, ticks: { stepSize: 1 } }, y: { grid: { display: false } } } }
   });
 
@@ -2295,7 +2327,7 @@ function buildCharts() {
       labels: mensualSorted.map(k => mensualCount[k].label),
       datasets: [{ data: mensualSorted.map(k => mensualCount[k].count), backgroundColor: COLORS.accent, borderRadius: 3, borderSkipped: false }]
     },
-    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, datalabels: { color: '#f0ece4', font: { family: "'Barlow Condensed', sans-serif", weight: '700', size: 11 }, anchor: 'end', align: 'end', formatter: v => v || '' } },
       scales: { y: { beginAtZero: true, grid: { color: '#1e1e1e' }, ticks: { stepSize: 1 } }, x: { grid: { display: false } } } }
   });
 
@@ -2323,7 +2355,7 @@ function buildCharts() {
       }]
     },
     options: { responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
+      plugins: { legend: { display: false }, datalabels: { color: '#f0ece4', font: { family: "'Barlow Condensed', sans-serif", weight: '700', size: 11 }, anchor: 'end', align: 'end', formatter: v => v || '' } },
       scales: { y: { beginAtZero: true, grid: { color: '#1e1e1e' }, ticks: { stepSize: 1 } }, x: { grid: { display: false } } } }
   });
 }
@@ -2334,7 +2366,7 @@ function downloadFolio(folio) {
   const rows = allData.filter(r => r.FOLIO === folio);
   if (!rows.length) return;
 
-  const headers = ['FOLIO','UNIDAD','ALMACEN','OV','FECHA CARGA','FECHA ENTREGA','FECHA REPORTE VTS','DIAS TRANSCURRIDOS','SEMANA','CLIENTE','MARCA','SKU','DESCRIPCION','PIEZAS','MOTIVO','RECLAMO','FOTOS','REGISTRADO POR','TIMESTAMP'];
+  const headers = ['FOLIO','UNIDAD','ALMACEN','OV','FECHA CARGA','FECHA ENTREGA','FECHA REPORTE VTS','DIAS TRANSCURRIDOS','SEMANA','CLIENTE','MARCA','SKU','DESCRIPCION','PIEZAS','MOTIVO','RECLAMO','FOTOS','REGISTRADO POR','CALIDAD','TIMESTAMP'];
 
   const wsData = [headers, ...rows.map(r => headers.map(h => r[h] || ''))];
   const ws = XLSX.utils.aoa_to_sheet(wsData);

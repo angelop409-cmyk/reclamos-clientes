@@ -2024,7 +2024,7 @@ function renderTable() {
       <td style="font-weight:500">${r.CLIENTE || '—'}</td>
       <td><span class="badge badge-${(r.MOTIVO||'').toLowerCase()}">${r.MOTIVO || '—'}</span></td>
       <td>${reclamoBadge(r.RECLAMO)}</td>
-      <td style="color:var(--muted2);font-size:0.78rem">${r['FECHA REPORTE VTS'] || '—'}</td>
+      <td style="color:var(--muted2);font-size:0.78rem">${excelDateToStr(r['FECHA REPORTE VTS']) || '—'}</td>
       <td style="text-align:center;font-family:'Barlow Condensed',sans-serif;font-weight:700;color:var(--accent)">${filteredData.filter(x=>x.FOLIO===r.FOLIO).length}</td>
       <td style="text-align:center;font-weight:600">${r.PIEZAS || '—'}</td>
       <td>${r.FOTOS === 'SÍ' ? '<span class="fotos-si">📷 SÍ</span>' : '<span class="fotos-no">—</span>'}</td>
@@ -2060,9 +2060,9 @@ function openModal(idx) {
     ['Cliente', r.CLIENTE],
     ['Motivo', r.MOTIVO],
     ['Reclamo', r.RECLAMO || 'PENDIENTE'],
-    ['Fecha carga', r['FECHA CARGA']],
-    ['Fecha entrega', r['FECHA ENTREGA']],
-    ['Fecha reporte VTS', r['FECHA REPORTE VTS']],
+    ['Fecha carga', excelDateToStr(r['FECHA CARGA'])],
+    ['Fecha entrega', excelDateToStr(r['FECHA ENTREGA'])],
+    ['Fecha reporte VTS', excelDateToStr(r['FECHA REPORTE VTS'])],
     ['Días transcurridos', r['DIAS TRANSCURRIDOS']],
     ['Semana', r.SEMANA],
     ['Fotos', r.FOTOS],
@@ -2124,6 +2124,19 @@ const chartInstances = {};
 
 function destroyChart(id) {
   if (chartInstances[id]) { chartInstances[id].destroy(); delete chartInstances[id]; }
+}
+
+function excelDateToStr(val) {
+  if (!val) return null;
+  const num = parseFloat(val);
+  if (!isNaN(num) && num > 40000 && num < 60000) {
+    const date = new Date(Math.round((num - 25569) * 86400 * 1000));
+    const d = String(date.getUTCDate()).padStart(2,'0');
+    const m = String(date.getUTCMonth()+1).padStart(2,'0');
+    const y = date.getUTCFullYear();
+    return `${d}/${m}/${y}`;
+  }
+  return String(val);
 }
 
 function buildCharts() {
@@ -2230,20 +2243,6 @@ function buildCharts() {
   });
 
   // Chart 5 — Tendencia por fecha
-  // Convertir número de serie Excel a fecha legible
-  function excelDateToStr(val) {
-    if (!val) return null;
-    const num = parseFloat(val);
-    if (!isNaN(num) && num > 40000 && num < 60000) {
-      const date = new Date(Math.round((num - 25569) * 86400 * 1000));
-      const d = String(date.getUTCDate()).padStart(2,'0');
-      const m = String(date.getUTCMonth()+1).padStart(2,'0');
-      const y = date.getUTCFullYear();
-      return `${d}/${m}/${y}`;
-    }
-    return String(val);
-  }
-
   const fechaCount = {};
   data.forEach(r => {
     const raw = r['FECHA REPORTE VTS'] || r.TIMESTAMP?.split(' ')[0];

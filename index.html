@@ -1926,9 +1926,9 @@ async function loadData() {
     allData = DEMO_DATA;
   } else {
     try {
-      const res = await fetch(GET_DATA_URL);
+      const res = await fetch(GET_DATA_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
       const json = await res.json();
-      allData = json.value || json || [];
+      allData = Array.isArray(json) ? json : (json.value || []);
     } catch(e) {
       allData = DEMO_DATA;
     }
